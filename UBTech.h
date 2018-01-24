@@ -16,19 +16,21 @@ const byte JIMU_VERSION[] = {0xFC, 0xCF,0x00,0xAA,0x41, 0x16, 0x51, 0x01, 0x00, 
 
 class UBTech {
     public:
-        UBTech(byte dataPin);
-        UBTech(byte dataPin, HardwareSerial *hsDebug);
+        UBTech(SoftwareSerial *ssData);
+		UBTech(SoftwareSerial *ssData, HardwareSerial *hsDebug);
         ~UBTech();
         void begin();
         void getVersion(byte id);
         void goAngle(byte id, byte angle, byte time);
         void getPos(byte id);
         void setLED(byte id, byte mode);
-		void detectServo();
+		inline void detectServo() { detectServo(1, MAX_SERVO_ID); }
+		inline void detectServo(byte max) { detectServo(1, max); }
+		void detectServo(byte min, byte max);
 		bool exists(byte id);
 
     private:
-        void initObject(byte dataPin);
+        void initObject(SoftwareSerial *ssData);
         inline bool sendCommand() { sendCommand(true); }
         bool sendCommand(bool expectReturn);
         void showCommand();
@@ -37,9 +39,8 @@ class UBTech {
         inline void resetReurnBuffer() { memset(_retBuf, 0, RETURN_BUFFER_SIZE); _retCnt = 0; }
 
         SoftwareSerial *_ss;
-        HardwareSerial *_hsDebug;
-        bool _serialDebug;
-        byte _dataPin;
+        HardwareSerial *_hs;
+        bool _enableDebug;
         byte _buf[COMMAND_BUFFER_SIZE];
 
         byte _retBuf[RETURN_BUFFER_SIZE];  

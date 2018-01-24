@@ -1,22 +1,21 @@
-#include "ubtech.h"
-UBTech::UBTech(byte dataPin) 
+#include "UBTech.h"
+
+UBTech::UBTech(SoftwareSerial *ssData) 
 {
-    _hsDebug = NULL;
-    _serialDebug = false;
-    initObject(dataPin);
+    _hs = NULL;
+    _enableDebug = false;
+    initObject(ssData);
 }
 
-UBTech::UBTech(byte dataPin, HardwareSerial *hsDebug) 
+UBTech::UBTech(SoftwareSerial *ssData, HardwareSerial *hsDebug) 
 {
-    _hsDebug = hsDebug;
-    _serialDebug = true;
-	initObject(dataPin);
+    _hs = hsDebug;
+    _enableDebug = true;
+	initObject(ssData);
 }
 
-void UBTech::initObject(byte dataPin) {
-    _dataPin = dataPin;
-    SoftwareSerial ss(dataPin, dataPin, false, 256);
-    _ss = &ss;
+void UBTech::initObject(SoftwareSerial *ssData) {
+    _ss = ssData;
 }
 
 UBTech::~UBTech() {
@@ -28,9 +27,9 @@ void UBTech::begin() {
 	detectServo();
 }
 
-void UBTech::detectServo() {
+void UBTech::detectServo(byte min, byte max) {
 	memset(_servo, 0, MAX_SERVO_ID + 1);
-	for (int i = 1; i <= MAX_SERVO_ID; i++) {
+	for (int i = min; i <= max; i++) {
 		getVersion(i);
 		if ((_retCnt > 0) && (_retBuf[2] == i) && (_retBuf[3] == 0xAA)) {
 			_servo[i] = true;
@@ -49,24 +48,26 @@ bool UBTech::sendCommand(bool expectReturn) {
 		sum += _buf[i];
 	}
 	_buf[8] = sum;
-	if (_serialDebug) showCommand();
+	if (_enableDebug) showCommand();
+
 	_ss->flush();
 	_ss->enableTx(true);
 	_ss->write(_buf, 10);
 	_ss->enableTx(false);
 	if (expectReturn) return checkReturn();
+	
 	return true;
 }
 
 void UBTech::showCommand()  {
-    if (!_serialDebug) return;
-    _hsDebug->print(millis());
-    _hsDebug->print(" OUT>>");
+    if (!_enableDebug) return;
+    _hs->print(millis());
+    _hs->print(" OUT>>");
     for (int i = 0; i < 10; i++) {
-        _hsDebug->print( (_buf[i] < 0x10 ? " 0" : " "));
-        _hsDebug->print(_buf[i], HEX);
+        _hs->print( (_buf[i] < 0x10 ? " 0" : " "));
+        _hs->print(_buf[i], HEX);
     }
-    _hsDebug->println();
+    _hs->println();
 }
 
 bool UBTech::checkReturn() {
@@ -75,19 +76,19 @@ bool UBTech::checkReturn() {
     byte ch;
     while ( ((millis() - startMs) < 500) && (!_ss->available()) ) ;
     if (!_ss->available()) return false;
-    if (_serialDebug) {
-        _hsDebug->print(millis());
-        _hsDebug->print(" IN>>>");
+    if (_enableDebug) {
+        _hs->print(millis());
+        _hs->print(" IN>>>");
     }
     while (_ss->available()) {
         ch =  (byte) _ss->read();
         _retBuf[_retCnt++] = ch;
-        if (_serialDebug) {
-            _hsDebug->print((ch < 0x10 ? " 0" : " "));
-            _hsDebug->print(ch, HEX);
+        if (_enableDebug) {
+            _hs->print((ch < 0x10 ? " 0" : " "));
+            _hs->print(ch, HEX);
         }
     }
-    if (_serialDebug) _hsDebug->println();
+    if (_enableDebug) _hs->println();
     return true;
 }
 
