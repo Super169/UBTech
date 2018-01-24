@@ -25,7 +25,23 @@ UBTech::~UBTech() {
 
 void UBTech::begin() {
     _ss->begin(SERVO_BAUD);
+	detectServo();
 }
+
+void UBTech::detectServo() {
+	memset(_servo, 0, MAX_SERVO_ID + 1);
+	for (int i = 1; i <= MAX_SERVO_ID; i++) {
+		getVersion(i);
+		if ((_retCnt > 0) && (_retBuf[2] == i) && (_retBuf[3] == 0xAA)) {
+			_servo[i] = true;
+		}
+	}
+}
+
+bool UBTech::exists(byte id) {
+	return _servo[id];
+}
+
 
 bool UBTech::sendCommand(bool expectReturn) {
 	byte sum = 0;

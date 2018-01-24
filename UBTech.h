@@ -6,6 +6,7 @@
 #include "SoftwareSerial.h"
 
 #define SERVO_BAUD 115200
+#define MAX_SERVO_ID 16
 
 #define COMMAND_BUFFER_SIZE 10
 #define RETURN_BUFFER_SIZE 20  // Actually, 10 is enough, just for saftey
@@ -23,6 +24,8 @@ class UBTech {
         void goAngle(byte id, byte angle, byte time);
         void getPos(byte id);
         void setLED(byte id, byte mode);
+		void detectServo();
+		bool exists(byte id);
 
     private:
         void initObject(byte dataPin);
@@ -41,6 +44,7 @@ class UBTech {
 
         byte _retBuf[RETURN_BUFFER_SIZE];  
         byte _retCnt;
+		bool _servo[MAX_SERVO_ID + 1];
 
 };
 
