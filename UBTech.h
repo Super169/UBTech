@@ -19,15 +19,20 @@ class UBTech {
         UBTech(SoftwareSerial *ssData);
 		UBTech(SoftwareSerial *ssData, HardwareSerial *hsDebug);
         ~UBTech();
+		bool setDebug(bool debug);
         void begin();
         void getVersion(byte id);
-        void goAngle(byte id, byte angle, byte time);
+        void move(byte id, byte angle, byte time);
         void getPos(byte id);
         void setLED(byte id, byte mode);
+		inline void setLedOn(byte id) { setLED(id, 0); }
+		inline void setLedOff(byte id) { setLED(id, 1); }
 		inline void detectServo() { detectServo(1, MAX_SERVO_ID); }
 		inline void detectServo(byte max) { detectServo(1, max); }
 		void detectServo(byte min, byte max);
 		bool exists(byte id);
+		byte* retBuffer() { return _retBuf; }
+		byte retCount() { return _retCnt; }
 
     private:
         void initObject(SoftwareSerial *ssData);

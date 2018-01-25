@@ -22,8 +22,15 @@ UBTech::~UBTech() {
     _ss = NULL;
 }
 
+bool UBTech::setDebug(bool debug) {
+	if (_hs == NULL) return false;
+	_enableDebug = debug;
+	return _enableDebug;
+}
+
 void UBTech::begin() {
     _ss->begin(SERVO_BAUD);
+	delay(100);
 	detectServo();
 }
 
@@ -101,7 +108,7 @@ void UBTech::getVersion(byte id) {
 	sendCommand();
 }
 
-void UBTech::goAngle(byte id, byte angle, byte time) {
+void UBTech::move(byte id, byte angle, byte time) {
 	resetCommandBuffer();
 	_buf[2] = id;
 	_buf[3] = 0x01;
