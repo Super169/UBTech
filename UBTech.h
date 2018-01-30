@@ -51,7 +51,7 @@ class UBTech {
         byte _retBuf[RETURN_BUFFER_SIZE];  
         byte _retCnt;
 		bool _servo[MAX_SERVO_ID + 1];
-
+		bool _servoLocked[MAX_SERVO_ID + 1];
 };
 
 #endif
