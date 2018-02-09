@@ -23,7 +23,10 @@ class UBTech {
         void begin();
         void getVersion(byte id);
         void move(byte id, byte angle, byte time);
-        void getPos(byte id);
+		byte lock(byte id) { return getPos(id, true); }
+		byte unlock(byte id) { return getPos(id, false); }
+        byte getPos(byte id) { return getPos(id, _isLocked[id]); }
+		byte getPos(byte id, bool lockAfterGet);
         void setLED(byte id, byte mode);
 		inline void setLedOn(byte id) { setLED(id, 0); }
 		inline void setLedOff(byte id) { setLED(id, 1); }
@@ -33,6 +36,9 @@ class UBTech {
 		bool exists(byte id);
 		byte* retBuffer() { return _retBuf; }
 		byte retCount() { return _retCnt; }
+		bool isLocked(byte id) { return _isLocked[id]; }
+		byte lastAngle(byte id) { return (_isLocked ? _lastAngle[id] : 0xFF); }
+		bool isServo(byte id) { return _isServo[id]; }
 
     private:
         void initObject(SoftwareSerial *ssData);
@@ -51,7 +57,9 @@ class UBTech {
         byte _retBuf[RETURN_BUFFER_SIZE];  
         byte _retCnt;
 		bool _servo[MAX_SERVO_ID + 1];
-		bool _servoLocked[MAX_SERVO_ID + 1];
+		bool _isLocked[MAX_SERVO_ID + 1];
+		byte _lastAngle[MAX_SERVO_ID + 1];
+		bool _isServo[MAX_SERVO_ID + 1];
 };
 
 #endif

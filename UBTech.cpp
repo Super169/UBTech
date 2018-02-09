@@ -34,7 +34,11 @@ void UBTech::begin() {
 	detectServo();
 	// How to get current servo status?
 	// Assume all unlocked as it is unlocked during power-off
-	for (int id = 0; id <= MAX_SERVO_ID; id++ ) _servoLocked[id] = false;
+	for (int id = 0; id <= MAX_SERVO_ID; id++ ) {
+		_isServo[id] = true;
+ 		_isLocked[id] = false;
+		_lastAngle[id] = 0xFF;
+	}
 }
 
 void UBTech::detectServo(byte min, byte max) {
@@ -121,16 +125,23 @@ void UBTech::move(byte id, byte angle, byte time) {
 	_buf[7] = time;  
 	sendCommand();
 	// servo will be locked after fire a move command
-	_servoLocked[id] = true;
+	_isLocked[id] = true;
+	_lastAngle[id] = angle;
 }
 
-void UBTech::getPos(byte id) {
+byte UBTech::getPos(byte id, bool lockAfterGet) {
 	resetCommandBuffer();
 	_buf[2] = id;
 	_buf[3] = 0x02;
 	sendCommand();
-	// servo will be unlocked after fire a get position command
-	_servoLocked[id] = false;
+	byte angle = _retBuf[7];
+	if (lockAfterGet) {
+		move(id, angle, 0);
+	} else {
+		// servo will be unlocked after fire a get position command
+		_isLocked[id] = false;
+	}
+	return angle;
 }
 
 void UBTech::setLED(byte id, byte mode) {
