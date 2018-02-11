@@ -21,6 +21,7 @@ class UBTech {
         ~UBTech();
 		bool setDebug(bool debug);
         void begin();
+        void end();
         void getVersion(byte id);
         void move(byte id, byte angle, byte time);
 		byte lock(byte id) { return getPos(id, true); }

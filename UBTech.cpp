@@ -32,21 +32,33 @@ void UBTech::begin() {
     _ss->begin(SERVO_BAUD);
 	delay(100);
 	detectServo();
-	// How to get current servo status?
-	// Assume all unlocked as it is unlocked during power-off
-	for (int id = 0; id <= MAX_SERVO_ID; id++ ) {
+}
+
+
+void UBTech::end() {
+    _ss->end();
+	for (int id =1; id <= MAX_SERVO_ID; id++) {
+		_servo[id] = false;
 		_isServo[id] = true;
- 		_isLocked[id] = false;
+		_isLocked[id] = false;
 		_lastAngle[id] = 0xFF;
-	}
+	}	
 }
 
 void UBTech::detectServo(byte min, byte max) {
 	memset(_servo, 0, MAX_SERVO_ID + 1);
-	for (int i = min; i <= max; i++) {
-		getVersion(i);
-		if ((_retCnt > 0) && (_retBuf[2] == i) && (_retBuf[3] == 0xAA)) {
-			_servo[i] = true;
+	for (int id = min; id <= max; id++) {
+		getVersion(id);
+		if ((_retCnt > 0) && (_retBuf[2] == id) && (_retBuf[3] == 0xAA)) {
+			// new servo detected, assume unlock
+			if (!_servo[id]) {
+				_servo[id] = true;
+				_isServo[id] = true;
+				_isLocked[id] = false;
+				_lastAngle[id] = 0xFF;
+			}
+		} else {
+			_servo[id] = false;
 		}
 	}
 }
