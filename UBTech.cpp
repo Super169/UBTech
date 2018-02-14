@@ -64,6 +64,7 @@ void UBTech::detectServo(byte min, byte max) {
 }
 
 bool UBTech::exists(byte id) {
+	if (id > MAX_SERVO_ID) return false;
 	return _servo[id];
 }
 
@@ -100,7 +101,7 @@ bool UBTech::checkReturn() {
     unsigned long startMs = millis();
     resetReurnBuffer();
     byte ch;
-    while ( ((millis() - startMs) < 500) && (!_ss->available()) ) ;
+    while ( ((millis() - startMs) < 600) && (!_ss->available()) ) ;
     if (!_ss->available()) return false;
     if (_enableDebug) {
         _hs->print(millis());
@@ -113,6 +114,9 @@ bool UBTech::checkReturn() {
             _hs->print((ch < 0x10 ? " 0" : " "));
             _hs->print(ch, HEX);
         }
+		// extra delay to make sure transaction completed 
+		// ToDo: check data end
+		if (!_ss->available()) delay(1);
     }
     if (_enableDebug) _hs->println();
     return true;
@@ -142,11 +146,21 @@ void UBTech::move(byte id, byte angle, byte time) {
 }
 
 byte UBTech::getPos(byte id, bool lockAfterGet) {
-	resetCommandBuffer();
-	_buf[2] = id;
-	_buf[3] = 0x02;
-	sendCommand();
+	int tryCnt = 0;
+	while (tryCnt++ < 3) {
+		resetCommandBuffer();
+		_buf[2] = id;
+		_buf[3] = 0x02;
+		sendCommand();
+		if (_retCnt == 10) break;
+	}
+	if (!_retCnt == 0x00) {
+		// What can I do if it has not return the position
+		return 0xFF;
+	}
+
 	byte angle = _retBuf[7];
+
 	if (lockAfterGet) {
 		move(id, angle, 0);
 	} else {
