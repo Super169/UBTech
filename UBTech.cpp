@@ -101,7 +101,7 @@ bool UBTech::checkReturn() {
     unsigned long startMs = millis();
     resetReurnBuffer();
     byte ch;
-    while ( ((millis() - startMs) < 600) && (!_ss->available()) ) ;
+    while ( ((millis() - startMs) < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
     if (!_ss->available()) return false;
     if (_enableDebug) {
         _hs->print(millis());
@@ -145,16 +145,17 @@ void UBTech::move(byte id, byte angle, byte time) {
 	_lastAngle[id] = angle;
 }
 
-byte UBTech::getPos(byte id, bool lockAfterGet) {
+byte UBTech::getPos(byte id, bool lockAfterGet, int retryCount) {
 	int tryCnt = 0;
-	while (tryCnt++ < 3) {
+	if (retryCount < 1) retryCount = DEFAULT_RETRY_GETPOS;
+	while (tryCnt++ < retryCount) {
 		resetCommandBuffer();
 		_buf[2] = id;
 		_buf[3] = 0x02;
 		sendCommand();
 		if (_retCnt == 10) break;
 	}
-	if (!_retCnt == 0x00) {
+	if (_retCnt != 10) {
 		// What can I do if it has not return the position
 		return 0xFF;
 	}
