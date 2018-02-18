@@ -11,18 +11,22 @@
 // 17 : Time in servo command
 // 18~19 : waiting time in millis
 
+// 26 * 30 * 20 = 15600
+#define ACTION_TABLE_SIZE 15600
+
 #define ENABLE_FLAG    0
 #define ID_OFFSET      0
 #define EXECUTE_TIME   17
 #define WAIT_TIME_HIGH 18
 #define WAIT_TIME_LOW  19
 
-
 #define MAX_COMBO 10
 #define MAX_COMBO_SIZE 100
 
 byte actionTable[MAX_ACTION][MAX_POSES][MAX_POSES_SIZE];
 byte comboTable[MAX_COMBO][MAX_COMBO_SIZE];
+
+char* actionDataFile = (char *) "/robot.dat";
 
 
 // SoftwareSerial ss14(14, 14, false, 256);
@@ -46,7 +50,9 @@ void setup() {
 	servo.begin();
 	// showServoInfo();
 	// servo.setDebug(true);
-	setupSampleData();
+	// setupSampleData();
+	ReadSPIFFS(false);
+
 	analogWrite(13, 255);
 	Serial.println("Control board ready");
 }
@@ -65,6 +71,34 @@ void fx_playDemo() {
 	playAction(0);
 }
 
+// A - Angle 
+// B - Debug
+// C
+// D - Download Action Data (MCU -> PC)
+// E
+// F - Free Servo
+// G 
+// H
+// I
+// J
+// K
+// L - Lock servo
+// M - Move
+// N
+// O
+// P - Play Action/Combo
+// Q
+// R - Read Action Data form SPIFFS
+// S - Stop Action
+// T - Detect Servo
+// U - Upload Action Data (PC -> MCU)
+// V
+// W - Write Action Data to SPIFFS
+// X 
+// Y 
+// Z - Reset Connection
+
+
 void fx_remoteControl() {
 	while (!Serial.available());
 	cmd = Serial.read();
@@ -76,8 +110,6 @@ void fx_remoteControl() {
 		case 'a': // Get Angle
 			cmd_GetServoAngle();
 			break;
-	
-
 		case 'B':
 			servo.setDebug(true);
 			break;
@@ -85,16 +117,20 @@ void fx_remoteControl() {
 			servo.setDebug(false);
 			break;
 
-		case 'D': // Lock servo
+		case 'T': // Detect/Test Servo
 			cmd_DetectServoHex();
 			break;
-		case 'd': // Lock servo
+		case 't': // Detect/Test servo
 			cmd_DetectServo();
 			break;
 
-		case 'G':
-			cmd_GetActionDataHex();
+		case 'D':
+			cmd_DownloadActionDataHex();
 			break;			
+
+		case 'U':
+			cmd_UploadActionDataHex();
+			break;
 
 		case 'L': // Lock servo
 			cmd_LockServoHex(true);
@@ -110,25 +146,35 @@ void fx_remoteControl() {
 		case 'm': // Move single servo
 			cmd_moveServo();
 			break;
-		case 'R': // Read servo angle without changing the locking
-			fx_readServo();
-			break;
+
+		case 'R': // Read action data from SPIFFS
+		 	cmd_ReadSPIFFS();
+		 	break;
+
+		case 'W': // Write action data to SPIFFS
+		 	cmd_WriteSPIFFS();
+		 	break;
+
 		case 'S': // Stop action (possible? or just go to standby)
 			break;
-		case 'U': // Unlock servo
+
+		case 'F': // Free the servo
 			cmd_LockServoHex(false);
 			break;
 
-		case 'u': // Lock servo
+		case 'f': // Free the servo
 			cmd_LockServo(false);
 			break;
 
 		case 'P': // Playback action Standard : 'A'-'Z', Combo : '0' - '9'
 			fx_playAction();
 			break;		
-		case 'X': 
+
+		case 'Z': 
 			fx_resetConnection();
 			break;		
+
+
 	}
 	clearInputBuffer();
 }
@@ -145,6 +191,22 @@ void serialPrintByte(byte data) {
 	Serial.print(data, HEX);
 }
 
+int getServoId() {
+	if (!Serial.available()) return -1;
+	int id = (byte) Serial.read();
+	if ((id >= '0') && (id <= '9')) {
+		id -= '0';
+	} else if ((id >= 'A') && (id <= 'G')) {
+		id = 10 + id - 'A';
+	} else if ((id >= 'a') && (id <= 'g')) {
+		id = 10 + id - 'a';
+	} else {
+		return -2;
+	}
+	return id;
+}
+
+#pragma region Get Servo Angle
 
 void cmd_GetServoAngleHex() {
 	byte outBuffer[32];
@@ -183,6 +245,10 @@ void cmd_GetServoAngle() {
 	}
 }
 
+#pragma endregion
+
+#pragma region Test/Detect Servo
+
 void cmd_DetectServoHex() {
 	servo.detectServo(1,16);
 	cmd_GetServoAngleHex();
@@ -192,6 +258,9 @@ void cmd_DetectServo() {
 	servo.detectServo(1,16);
 }
 
+#pragma endregion
+
+#pragma region Lock/Free Servo
 
 // Return: 
 //   0 - L/U
@@ -270,17 +339,9 @@ void cmd_LockServo(bool goLock) {
 	}
 }
 
+#pragma endregion
 
-
-void cmd_GetActionDataHex() {
-	byte *ptr = (byte *)actionTable;
-	long size = MAX_POSES * MAX_POSES_SIZE;
-	for(int action = 0; action < MAX_ACTION; action ++) {
-		Serial.write(ptr, size);
-		ptr += size;
-		delay(1);  // add 1 ms delay for processing the data
-	}
-}
+#pragma region Move Servo
 
 #define MOVE_OK 				0x00
 #define MOVE_ERR_PARM_CNT		0x01
@@ -453,6 +514,161 @@ int moveMultiServo(int inCount, byte* inBuffer, byte *result) {
 	return moveCnt;
 }
 
+#pragma endregion
+
+#pragma region Download / Upload Action Data
+
+void cmd_DownloadActionDataHex() {
+	byte *ptr = (byte *)actionTable;
+	long size = MAX_POSES * MAX_POSES_SIZE;
+	for(int action = 0; action < MAX_ACTION; action ++) {
+		Serial.write(ptr, size);
+		ptr += size;
+		delay(1);  // add 1 ms delay for processing the data
+	}
+}
+
+#define UPLOAD_OK 				0x00
+#define UPLOAD_CLEAR_OK			0x00
+#define UPLOAD_ERR_ACTION		0x01
+#define UPLOAD_ERR_POSE         0x02
+#define UPLOAD_ERR_POSE_DATA    0x03
+#define UPLOAD_ERR_CLEAR_POSE   0x04
+
+//  'W' actionId 0xFF				=> clear action
+//  'W' actionId poseId 20xData 	=> upload pose data
+
+void cmd_UploadActionDataHex() {
+	byte inBuffer[MAX_POSES_SIZE];
+	byte result[6];
+	memset(result,0xfe,4);
+	result[0] = 'W';
+	int poseCnt = 0;
+	byte *ptr;
+	if (Serial.available()) {
+		result[1] = Serial.read();
+		if (Serial.available()) {
+			result[2] = Serial.read();
+			poseCnt = 0;
+			while (Serial.available()) {
+				inBuffer[poseCnt++] = Serial.read();
+				if (poseCnt >= MAX_POSES_SIZE) break;
+				delay(1);  // for safety, add 1ms delay here,otherwise it may cause missing data.   It won't cause much delay, as only 20 bytes is sent
+			}
+		}
+	}
+
+	if (result[1] > MAX_ACTION) {
+		result[3] = UPLOAD_ERR_ACTION;
+		Serial.write(result, 4);
+		return;
+	}
+
+	if (result[2] == 0xFF) {
+		if (poseCnt > 0) {
+			result[3] = UPLOAD_ERR_CLEAR_POSE;
+			Serial.write(result, 4);
+			return;
+		}
+		ptr = &actionTable[result[1]][0][0];
+		long size = MAX_POSES * MAX_POSES_SIZE;
+		memset(ptr, 0, size);
+		result[3] = UPLOAD_CLEAR_OK;
+		Serial.write(result, 4);
+		return;
+	}
+	
+	if (result[2] > MAX_POSES_SIZE) {
+		result[3] = UPLOAD_ERR_POSE;
+		Serial.write(result, 4);
+		return;
+	}
+	
+	if (poseCnt != MAX_POSES_SIZE) {
+		result[3] = UPLOAD_ERR_POSE_DATA;
+		result[4] = poseCnt;
+		Serial.write(result, 5);
+		Serial.write(inBuffer, poseCnt);
+		return;
+	}
+			
+	ptr = & actionTable[result[1]][result[2]][0];
+	long size = MAX_POSES * MAX_POSES_SIZE;
+	memcpy(ptr, inBuffer, MAX_POSES_SIZE);
+	result[3] = UPLOAD_OK;
+	Serial.write(result, 4);
+}
+
+#pragma endregion
+
+#pragma region Read/Write SPIFFS
+
+#define READ_OK 			 0x00
+#define READ_ERR_NOT_FOUND   0x01
+#define READ_ERR_OPEN_FILE   0x02
+#define READ_ERR_FILE_SIZE   0x03
+#define READ_ERR_READ_FILE   0x04
+
+void cmd_ReadSPIFFS() {
+	ReadSPIFFS(true);
+}
+
+void ReadSPIFFS(bool sendResult) {
+	byte result[2];
+	result[0] = 'R';
+	SPIFFS.begin();
+	if (SPIFFS.exists(actionDataFile)) {
+		File f = SPIFFS.open(actionDataFile, "r");
+		if (!f) {
+			result[1] = READ_ERR_OPEN_FILE;
+		} else {
+			if (f.size() != sizeof(actionTable)) {
+				result[1] = READ_ERR_FILE_SIZE;
+			} else {
+				memset(actionTable, 0, sizeof(actionTable));
+				size_t wCnt = f.readBytes((char *)actionTable, sizeof(actionTable));
+				f.close();
+				if (wCnt == sizeof(actionTable)) {
+					result[1] = READ_OK;
+				} else {
+					result[1] = READ_ERR_READ_FILE;
+				}
+			}
+		}
+	} else {
+		result[1] = READ_ERR_NOT_FOUND;
+	}
+	SPIFFS.end();	
+	if (sendResult) Serial.write(result, 2);
+}
+
+#define WRITE_OK 			 0x00
+#define WRITE_ERR_OPEN_FILE  0x01
+#define WRITE_ERR_WRITE_FILE 0x02
+
+bool cmd_WriteSPIFFS() {
+	byte result[2];
+	result[0] = 'W';
+	SPIFFS.begin();
+	File f = SPIFFS.open(actionDataFile, "w");
+	if (!f) {
+		result[1] = WRITE_ERR_OPEN_FILE;
+	} else {
+		size_t wCnt = f.write((byte *)actionTable, sizeof(actionTable));
+		f.close();
+		if (wCnt == sizeof(actionTable)) {
+			result[1] = WRITE_OK;
+		} else {
+			result[1] = WRITE_ERR_WRITE_FILE;
+		}
+	}
+	SPIFFS.end();	
+	Serial.write(result, 2);
+}
+
+#pragma endregion
+
+
 void showServoInfoHex() {
 	servoCnt = 0;
 	byte outBuffer[16];
@@ -495,89 +711,6 @@ void showServoInfo() {
 		Serial.print(F("No "));
 	}
 	Serial.print(F(" servo detected."));
-}
-
-void fx_detectServoHex() {
-	servo.detectServo(1,16);
-	showServoInfoHex();
-}
-
-void fx_detectServo() {
-	Serial.println("Re-detect servo, please wait for few seconds");
-	servo.detectServo(1,16);
-}
-
-
-void fx_moveServo() {
-	int id = getServoId();
-	switch (id) {
-		case -1:
-			Serial.print('M');
-			Serial.write(0x01);
-			break;
-		case -2:
-			Serial.print('M');
-			Serial.write(0x02);
-			break;
-		case 0:
-			Serial.print('M');
-			Serial.write(0x03);
-			break;
-		default:
-			int angle = -1;
-			angle = Serial.parseInt();
-			if ((angle >= 0) && (angle <= 240)) {
-				servo.move(id, angle, 50);
-				Serial.write('M');
-				Serial.write(0x00);
-				Serial.write(angle);
-			} else {
-				Serial.print('M');
-				Serial.write(0x04);
-			}
-			break;
-	}
-}
-
-void fx_readServo() {
-	int id = getServoId();
-	switch (id) {
-		case -1:
-			Serial.print('R');
-			Serial.write(0x01);
-			break;
-		case -2:
-			Serial.print('R');
-			Serial.write(0x02);
-			break;
-		case 0:
-			Serial.print('R');
-			Serial.write(0x03);
-			break;
-		default:
-			byte angle = servo.getPos(id);
-			Serial.print('R');
-			Serial.write(0x00);
-			Serial.write(id);
-			Serial.println(angle);
-			break;
-	}
-}
-
-
-int getServoId() {
-	if (!Serial.available()) return -1;
-	int id = (byte) Serial.read();
-	if ((id >= '0') && (id <= '9')) {
-		id -= '0';
-	} else if ((id >= 'A') && (id <= 'G')) {
-		id = 10 + id - 'A';
-	} else if ((id >= 'a') && (id <= 'g')) {
-		id = 10 + id - 'a';
-	} else {
-		return -2;
-	}
-	return id;
 }
 
 void fx_playAction() {
@@ -646,18 +779,18 @@ void fx_resetConnection() {
 	servo.begin();
 }
 
-
+/*
 void setupSampleData() {
 	memset(actionTable, 0, sizeof(actionTable));
 
-	/*
-    A - standby  
-	B - forward
-	C - left
-	D - right
-	E - backword
-	F - action
-	*/
+	
+    // A - standby  
+	// B - forward
+	// C - left
+	// D - right
+	// E - backword
+	// F - action
+	
 
 	byte poseArray[][16] = { {0x5a, 0x10, 0x3d, 
 	                          0x5a, 0xa7, 0x72, 
@@ -693,27 +826,7 @@ void setupSampleData() {
 	setFullPoses(7,0,poseG[1], 150, 5000);
 
 }
-/*
-void setFullPoses(byte act, byte pos, byte angle[], byte time, int waitTime) {
-	for (int i = 0; i < 16; i++) {
-		actionTable[act][pos][2 * i] = angle[i];
-		actionTable[act][pos][2 * i + 1] = time;
-	}
-	actionTable[act][pos][32] = (waitTime / 256);
-	actionTable[act][pos][33] = (waitTime % 256);
-}
 
-void setSamplePos(byte act, byte pos, byte a1, byte a2, byte a3, byte time, int waitTime) {
-	actionTable[act][pos][0] = a1;
-	actionTable[act][pos][1] = time;
-	actionTable[act][pos][2] = a2;
-	actionTable[act][pos][3] = time;
-	actionTable[act][pos][4] = a3;
-	actionTable[act][pos][5] = time;
-	actionTable[act][pos][32] = (waitTime / 256);
-	actionTable[act][pos][33] = (waitTime % 256);
-}
-*/
 void setFullPoses(byte act, byte pos, byte angle[], byte time, int waitTime) {
 	byte *ptr = &actionTable[act][pos][0];
 	memset(ptr, 0xFF, MAX_POSES_SIZE);
@@ -737,3 +850,25 @@ void setSamplePos(byte act, byte pos, byte a1, byte a2, byte a3, byte time, int 
 	actionTable[act][pos][WAIT_TIME_HIGH] = (waitTime / 256);
 	actionTable[act][pos][WAIT_TIME_LOW] = (waitTime % 256);
 }
+*/
+/*
+void setFullPoses(byte act, byte pos, byte angle[], byte time, int waitTime) {
+	for (int i = 0; i < 16; i++) {
+		actionTable[act][pos][2 * i] = angle[i];
+		actionTable[act][pos][2 * i + 1] = time;
+	}
+	actionTable[act][pos][32] = (waitTime / 256);
+	actionTable[act][pos][33] = (waitTime % 256);
+}
+
+void setSamplePos(byte act, byte pos, byte a1, byte a2, byte a3, byte time, int waitTime) {
+	actionTable[act][pos][0] = a1;
+	actionTable[act][pos][1] = time;
+	actionTable[act][pos][2] = a2;
+	actionTable[act][pos][3] = time;
+	actionTable[act][pos][4] = a3;
+	actionTable[act][pos][5] = time;
+	actionTable[act][pos][32] = (waitTime / 256);
+	actionTable[act][pos][33] = (waitTime % 256);
+}
+*/
