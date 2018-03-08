@@ -213,8 +213,13 @@ void cmd_GetServoAngleHex() {
 	for (int id = 1; id <= 16; id++) {
 		int pos = 2 * (id - 1);
 		if (servo.exists(id)) {
-			outBuffer[pos] = servo.getPos(id);
-			outBuffer[pos+1] = (servo.isLocked(id) ? 1 : 0);
+			if (servo.isLocked(id)) {
+				outBuffer[pos] = servo.lastAngle(id);
+				outBuffer[pos+1] = (servo.isLocked(id) ? 1 : 0);
+			} else {
+				outBuffer[pos] = servo.getPos(id);
+				outBuffer[pos+1] = 0;
+			}
 		} else {
 			outBuffer[pos] = 0xFF;
 			outBuffer[pos+1] = 0;
@@ -754,9 +759,9 @@ void playAction(byte actionCode) {
 	servo.setDebug(true);
 	for (int po = 0; po < MAX_POSES; po++) {
 		int waitTime = actionTable[actionCode][po][WAIT_TIME_HIGH] * 256 + actionTable[actionCode][po][WAIT_TIME_LOW];
-		// End with all zero, so wait time will be 0x00, 0x00
-		if (waitTime == 0) break;
 		byte time = actionTable[actionCode][po][EXECUTE_TIME];
+		// End with all zero, so wait time will be 0x00, 0x00, and time will be 0x00 also
+		if ((waitTime == 0) && (time == 0)) break;
 		if (time > 0) {
 			for (int id = 1; id <= 16; id++) {
 				byte angle = actionTable[actionCode][po][ID_OFFSET + id];
