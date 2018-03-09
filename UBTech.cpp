@@ -42,6 +42,7 @@ void UBTech::end() {
 		_isServo[id] = true;
 		_isLocked[id] = false;
 		_lastAngle[id] = 0xFF;
+		_adjAngle[id] = 0x7F7F;
 	}	
 }
 
@@ -56,6 +57,7 @@ void UBTech::detectServo(byte min, byte max) {
 				_isServo[id] = true;
 				_isLocked[id] = false;
 				_lastAngle[id] = 0xFF;
+				_adjAngle[id] = 0x7F7F;
 			}
 		} else {
 			_servo[id] = false;
@@ -171,6 +173,40 @@ byte UBTech::getPos(byte id, bool lockAfterGet, int retryCount) {
 	return angle;
 }
 
+uint16 UBTech::getAdjAngle(byte id) {
+	int tryCnt = 0;
+	int retryCount = DEFAULT_RETRY_GETPOS;
+	while (tryCnt++ < retryCount) {
+		resetCommandBuffer();
+		_buf[2] = id;
+		_buf[3] = 0xD4;
+		sendCommand();
+		if (_retCnt == 10) break;
+	}
+	if (_retCnt != 10) {
+		// What can I do if it has not return the position
+		return 0x7F7F;
+	}
+	_adjAngle[id] = _retBuf[6] * 256 + _retBuf[7];
+	return _adjAngle[id];
+}
+
+uint16 UBTech::setAdjAngle(byte id, uint16 adjValue) {
+	int tryCnt = 0;
+	int retryCount = DEFAULT_RETRY_GETPOS;
+	while (tryCnt++ < retryCount) {
+		resetCommandBuffer();
+		_buf[2] = id;
+		_buf[3] = 0xD2;
+		_buf[6] = adjValue / 256;
+		_buf[7] = adjValue % 256;
+		sendCommand();
+		if (_retCnt == 10) break;
+	}
+	return getAdjAngle(id);
+}
+
+
 void UBTech::setLED(byte id, byte mode) {
 	resetCommandBuffer();
 	_buf[2] = id;
@@ -179,3 +215,12 @@ void UBTech::setLED(byte id, byte mode) {
 	sendCommand();
 }
 
+int UBTech::execute(byte cmd[], byte result[]) {
+	resetCommandBuffer();
+	memcpy(_buf, cmd, 8);
+	sendCommand();
+	if (!_retCnt) return false;
+	memcpy(result, _retBuf, _retCnt);
+	return _retCnt;
+
+}

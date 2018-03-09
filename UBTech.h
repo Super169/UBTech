@@ -44,6 +44,9 @@ class UBTech {
 		bool isLocked(byte id) { return _isLocked[id]; }
 		byte lastAngle(byte id) { return (_isLocked ? _lastAngle[id] : 0xFF); }
 		bool isServo(byte id) { return _isServo[id]; }
+		int execute(byte cmd[], byte result[]);
+		uint16 getAdjAngle(byte id);
+		uint16 setAdjAngle(byte id, uint16 adjValue);
 
     private:
         void initObject(SoftwareSerial *ssData);
@@ -65,6 +68,7 @@ class UBTech {
 		bool _isLocked[MAX_SERVO_ID + 1];
 		byte _lastAngle[MAX_SERVO_ID + 1];
 		bool _isServo[MAX_SERVO_ID + 1];
+		uint16 _adjAngle[MAX_SERVO_ID + 1];
 };
 
 #endif
