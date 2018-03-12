@@ -2,28 +2,27 @@
 
 UBTech::UBTech(SoftwareSerial *ssData) 
 {
-    _hs = NULL;
-    _enableDebug = false;
-    initObject(ssData);
+    initObject(ssData, NULL);
 }
 
 UBTech::UBTech(SoftwareSerial *ssData, HardwareSerial *hsDebug) 
 {
-    _hs = hsDebug;
-    _enableDebug = true;
-	initObject(ssData);
+	initObject(ssData, hsDebug);
 }
 
-void UBTech::initObject(SoftwareSerial *ssData) {
+void UBTech::initObject(SoftwareSerial *ssData, HardwareSerial *hsDebug) {
     _ss = ssData;
+	_dbg = hsDebug;
+	_enableDebug = (_dbg != NULL);
 }
 
 UBTech::~UBTech() {
     _ss = NULL;
+	_dbg = NULL;
 }
 
 bool UBTech::setDebug(bool debug) {
-	if (_hs == NULL) return false;
+	if (_dbg == NULL) return false;
 	_enableDebug = debug;
 	return _enableDebug;
 }
@@ -34,11 +33,11 @@ void UBTech::begin() {
 	detectServo();
 }
 
-
 void UBTech::end() {
     _ss->end();
 	for (int id =1; id <= MAX_SERVO_ID; id++) {
 		_servo[id] = false;
+		_led[id] = false;
 		_isServo[id] = true;
 		_isLocked[id] = false;
 		_lastAngle[id] = 0xFF;
@@ -53,6 +52,7 @@ void UBTech::detectServo(byte min, byte max) {
 		if ((_retCnt > 0) && (_retBuf[2] == id) && (_retBuf[3] == 0xAA)) {
 			// new servo detected, assume unlock
 			if (!_servo[id]) {
+				_servo[id] = true;
 				_servo[id] = true;
 				_isServo[id] = true;
 				_isLocked[id] = false;
@@ -70,6 +70,16 @@ bool UBTech::exists(byte id) {
 	return _servo[id];
 }
 
+void UBTech::showCommand()  {
+    if (!_enableDebug) return;
+    _dbg->print(millis());
+    _dbg->print(" OUT>>");
+    for (int i = 0; i < 10; i++) {
+        _dbg->print( (_buf[i] < 0x10 ? " 0" : " "));
+        _dbg->print(_buf[i], HEX);
+    }
+    _dbg->println();
+}
 
 bool UBTech::sendCommand(bool expectReturn) {
 	byte sum = 0;
@@ -84,19 +94,7 @@ bool UBTech::sendCommand(bool expectReturn) {
 	_ss->write(_buf, 10);
 	_ss->enableTx(false);
 	if (expectReturn) return checkReturn();
-	
 	return true;
-}
-
-void UBTech::showCommand()  {
-    if (!_enableDebug) return;
-    _hs->print(millis());
-    _hs->print(" OUT>>");
-    for (int i = 0; i < 10; i++) {
-        _hs->print( (_buf[i] < 0x10 ? " 0" : " "));
-        _hs->print(_buf[i], HEX);
-    }
-    _hs->println();
 }
 
 bool UBTech::checkReturn() {
@@ -106,24 +104,28 @@ bool UBTech::checkReturn() {
     while ( ((millis() - startMs) < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
     if (!_ss->available()) return false;
     if (_enableDebug) {
-        _hs->print(millis());
-        _hs->print(" IN>>>");
+        _dbg->print(millis());
+        _dbg->print(" IN>>>");
     }
     while (_ss->available()) {
         ch =  (byte) _ss->read();
         _retBuf[_retCnt++] = ch;
         if (_enableDebug) {
-            _hs->print((ch < 0x10 ? " 0" : " "));
-            _hs->print(ch, HEX);
+            _dbg->print((ch < 0x10 ? " 0" : " "));
+            _dbg->print(ch, HEX);
         }
 		// extra delay to make sure transaction completed 
-		// ToDo: check data end
+		// ToDo: check data end?
+		//       But what can i do if not ended, seems not logical as only few bytes returned. 
+		//       1ms is already more than enough.
 		if (!_ss->available()) delay(1);
     }
-    if (_enableDebug) _hs->println();
+    if (_enableDebug) _dbg->println();
     return true;
 }
 
+// FC CF {id} 01 00 00 00 00 {sum} ED
+// FC CF {id} {V-1} {V-2} {V-3} {V-4} {sum} ED
 void UBTech::getVersion(byte id) {
 	resetCommandBuffer();
 	_buf[0] = 0xFC;
@@ -133,6 +135,8 @@ void UBTech::getVersion(byte id) {
 	sendCommand();
 }
 
+// FA AF {id} 01 {angle} {time} {T-1} {T-2} {sum} ED
+// {AA + id}
 void UBTech::move(byte id, byte angle, byte time) {
 	resetCommandBuffer();
 	_buf[2] = id;
@@ -147,6 +151,9 @@ void UBTech::move(byte id, byte angle, byte time) {
 	_lastAngle[id] = angle;
 }
 
+
+// FA AF {id} 01 00 00 00 00 {sum} ED
+// FA AF {id} 00 {angle} 00 {real} {sum} ED
 byte UBTech::getPos(byte id, bool lockAfterGet, int retryCount) {
 	int tryCnt = 0;
 	if (retryCount < 1) retryCount = DEFAULT_RETRY_GETPOS;
@@ -173,6 +180,8 @@ byte UBTech::getPos(byte id, bool lockAfterGet, int retryCount) {
 	return angle;
 }
 
+// FA AF {id} D4 00 00 00 00 {sum} ED
+// FA AF {AA + id} D4 00 00 {A-1} {A-2} {sum} ED
 uint16 UBTech::getAdjAngle(byte id) {
 	int tryCnt = 0;
 	int retryCount = DEFAULT_RETRY_GETPOS;
@@ -191,6 +200,8 @@ uint16 UBTech::getAdjAngle(byte id) {
 	return _adjAngle[id];
 }
 
+// FA AF {id} D2 00 00 {A-1} {A-2} {sum} ED
+// FA AF {AA + id} 00 00 00 00 {sum} ED
 uint16 UBTech::setAdjAngle(byte id, uint16 adjValue) {
 	int tryCnt = 0;
 	int retryCount = DEFAULT_RETRY_GETPOS;
@@ -206,13 +217,17 @@ uint16 UBTech::setAdjAngle(byte id, uint16 adjValue) {
 	return getAdjAngle(id);
 }
 
-
+// FA AF {id} 04 {0/1} 00 00 00 {sum} ED
+// {AA + id}
 void UBTech::setLED(byte id, byte mode) {
 	resetCommandBuffer();
 	_buf[2] = id;
 	_buf[3] = 0x04;
 	_buf[4] = mode;
 	sendCommand();
+	if ((_retCnt > 0) && (_retBuf[0] == (0xAA + id))) {
+		_led[id] = (!mode);
+	}
 }
 
 int UBTech::execute(byte cmd[], byte result[]) {
@@ -220,7 +235,31 @@ int UBTech::execute(byte cmd[], byte result[]) {
 	memcpy(_buf, cmd, 8);
 	sendCommand();
 	if (!_retCnt) return false;
+	// Checking for Angle / Lock / LED
+	// Ignore for id = 0 ?
+	if ((cmd[0] == 0xFA) && (cmd[1] == 0xAF)) {
+		byte code = cmd[3];
+		switch (code) {
+			case 0x01:
+				if ((cmd[2] != 0) && (_retBuf[0] == (0xAA + cmd[2]))) {
+					_lastAngle[cmd[2]] = cmd[4];
+					_isLocked[cmd[2]] = true;
+				}
+				break;
+			case 0x02:
+				if ((cmd[2] != 0) && (_retCnt == 10)) {
+					_isLocked[cmd[2]] = false;
+				}
+				break;
+			case 0x04:
+				if ((cmd[2] != 0) && (_retBuf[0] == (0xAA + cmd[2]))) {
+					_led[cmd[2]] = (!cmd[4]);
+				}
+				break;
+		}
+
+	}
+
 	memcpy(result, _retBuf, _retCnt);
 	return _retCnt;
-
 }

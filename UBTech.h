@@ -49,7 +49,7 @@ class UBTech {
 		uint16 setAdjAngle(byte id, uint16 adjValue);
 
     private:
-        void initObject(SoftwareSerial *ssData);
+        void initObject(SoftwareSerial *ssData, HardwareSerial *hsDebug);
         inline bool sendCommand() { sendCommand(true); }
         bool sendCommand(bool expectReturn);
         void showCommand();
@@ -58,13 +58,15 @@ class UBTech {
         inline void resetReurnBuffer() { memset(_retBuf, 0, RETURN_BUFFER_SIZE); _retCnt = 0; }
 
         SoftwareSerial *_ss;
-        HardwareSerial *_hs;
+        HardwareSerial *_dbg;
         bool _enableDebug;
-        byte _buf[COMMAND_BUFFER_SIZE];
 
+        byte _buf[COMMAND_BUFFER_SIZE];
         byte _retBuf[RETURN_BUFFER_SIZE];  
         byte _retCnt;
+
 		bool _servo[MAX_SERVO_ID + 1];
+		bool _led[MAX_SERVO_ID + 1];
 		bool _isLocked[MAX_SERVO_ID + 1];
 		byte _lastAngle[MAX_SERVO_ID + 1];
 		bool _isServo[MAX_SERVO_ID + 1];
