@@ -48,6 +48,7 @@ void UBTech::end() {
 void UBTech::detectServo(byte min, byte max) {
 	memset(_servo, 0, MAX_SERVO_ID + 1);
 	for (int id = min; id <= max; id++) {
+		delay(1);
 		getVersion(id);
 		if ((_retCnt > 0) && (_retBuf[2] == id) && (_retBuf[3] == 0xAA)) {
 			// new servo detected, assume unlock
@@ -72,8 +73,7 @@ bool UBTech::exists(byte id) {
 
 void UBTech::showCommand()  {
     if (!_enableDebug) return;
-    _dbg->print(millis());
-    _dbg->print(" OUT>>");
+    _dbg->printf("%06d OUT>>", millis());
     for (int i = 0; i < 10; i++) {
         _dbg->print( (_buf[i] < 0x10 ? " 0" : " "));
         _dbg->print(_buf[i], HEX);
@@ -104,15 +104,17 @@ bool UBTech::checkReturn() {
     while ( ((millis() - startMs) < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
     if (!_ss->available()) return false;
     if (_enableDebug) {
-        _dbg->print(millis());
-        _dbg->print(" IN>>>");
+        _dbg->printf("%06d IN>>>", millis());
     }
     while (_ss->available()) {
         ch =  (byte) _ss->read();
         _retBuf[_retCnt++] = ch;
         if (_enableDebug) {
+			_dbg->printf(" %02X", ch);
+			/*
             _dbg->print((ch < 0x10 ? " 0" : " "));
             _dbg->print(ch, HEX);
+			*/
         }
 		// extra delay to make sure transaction completed 
 		// ToDo: check data end?
@@ -120,6 +122,29 @@ bool UBTech::checkReturn() {
 		//       1ms is already more than enough.
 		if (!_ss->available()) delay(1);
     }
+	// TODO: Think about any better solution to initiate the bus.
+	// Special handling for missing frist byte.
+	// In some situation, espeically right after reset, the first return byte will be missing.
+	// This is a temporary solution to handle FC / FA return with missing byte.
+	if ((_retCnt == 9) && (_retBuf[8]==0xED)) {
+		byte b1 = 0;
+
+		// Now, only handle those 0x?F
+		if ((_retBuf[0] % 0x10) == 0x0F) {
+			b1 = 0xF0 + (_retBuf[0] >> 4);
+		}
+		// add handling for other code  if needed
+
+		if (b1) {
+			for (int i = _retCnt; i > 0; i--) {
+				_retBuf[i] = _retBuf[i-1];
+			}
+			_retBuf[0] = b1;
+			_retCnt++;
+			if (_enableDebug) _dbg->printf("  **Missing byte added: [%02X]",b1);
+		}
+	}
+
     if (_enableDebug) _dbg->println();
     return true;
 }
