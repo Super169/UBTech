@@ -12,7 +12,7 @@
 #define RETURN_BUFFER_SIZE 	20  // Actually, 10 is enough, just for saftey
 
 #define COMMAND_WAIT_TIME		400
-#define DEFAULT_RETRY_GETPOS	3
+#define DEFAULT_MAX_TRY_GETPOS	3
 
 const byte SERVO_CMD[] = {0xFA, 0xAF,0x00,0x00,0x00, 0x00, 0x00, 0x00, 0x00, 0xED};
 const byte JIMU_VERSION[] = {0xFC, 0xCF,0x00,0xAA,0x41, 0x16, 0x51, 0x01, 0x00, 0xED};
@@ -28,9 +28,10 @@ class UBTech {
         void getVersion(byte id);
         void move(byte id, byte angle, byte time);
 		byte lock(byte id) { return getPos(id, true); }
+		void lockAll() { for (int id = 1; id <= MAX_SERVO_ID; id++) getPos(id, true); }
 		byte unlock(byte id) { return getPos(id, false); }
-        byte getPos(byte id) { return getPos(id, _isLocked[id], DEFAULT_RETRY_GETPOS); }
-		byte getPos(byte id, bool lockAfterGet) { return getPos(id, lockAfterGet, DEFAULT_RETRY_GETPOS); }
+        byte getPos(byte id) { return getPos(id, _isLocked[id], DEFAULT_MAX_TRY_GETPOS); }
+		byte getPos(byte id, bool lockAfterGet) { return getPos(id, lockAfterGet, DEFAULT_MAX_TRY_GETPOS); }
 		byte getPos(byte id, bool lockAfterGet, int retryCount);
         void setLED(byte id, byte mode);
 		inline void setLedOn(byte id) { setLED(id, 0); }

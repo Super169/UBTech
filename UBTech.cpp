@@ -179,10 +179,11 @@ void UBTech::move(byte id, byte angle, byte time) {
 
 // FA AF {id} 01 00 00 00 00 {sum} ED
 // FA AF {id} 00 {angle} 00 {real} {sum} ED
-byte UBTech::getPos(byte id, bool lockAfterGet, int retryCount) {
+byte UBTech::getPos(byte id, bool lockAfterGet, int maxTry) {
+	if (!exists(id)) return 0xFF;
 	int tryCnt = 0;
-	if (retryCount < 1) retryCount = DEFAULT_RETRY_GETPOS;
-	while (tryCnt++ < retryCount) {
+	if (maxTry < 1) maxTry = DEFAULT_MAX_TRY_GETPOS;
+	while (tryCnt++ < maxTry) {
 		resetCommandBuffer();
 		_buf[2] = id;
 		_buf[3] = 0x02;
@@ -205,12 +206,13 @@ byte UBTech::getPos(byte id, bool lockAfterGet, int retryCount) {
 	return angle;
 }
 
+
 // FA AF {id} D4 00 00 00 00 {sum} ED
 // FA AF {AA + id} D4 00 00 {A-1} {A-2} {sum} ED
 uint16 UBTech::getAdjAngle(byte id) {
 	int tryCnt = 0;
-	int retryCount = DEFAULT_RETRY_GETPOS;
-	while (tryCnt++ < retryCount) {
+	int maxTry = DEFAULT_MAX_TRY_GETPOS;
+	while (tryCnt++ < maxTry) {
 		resetCommandBuffer();
 		_buf[2] = id;
 		_buf[3] = 0xD4;
@@ -229,8 +231,8 @@ uint16 UBTech::getAdjAngle(byte id) {
 // FA AF {AA + id} 00 00 00 00 {sum} ED
 uint16 UBTech::setAdjAngle(byte id, uint16 adjValue) {
 	int tryCnt = 0;
-	int retryCount = DEFAULT_RETRY_GETPOS;
-	while (tryCnt++ < retryCount) {
+	int maxTry = DEFAULT_MAX_TRY_GETPOS;
+	while (tryCnt++ < maxTry) {
 		resetCommandBuffer();
 		_buf[2] = id;
 		_buf[3] = 0xD2;
@@ -254,7 +256,13 @@ void UBTech::setLED(byte id, byte mode) {
 		_led[id] = (!mode);
 	}
 }
-
+/*
+void UBTech::lockAll() {
+	for (int id = 1; id <= MAX_SERVO_ID; id++) {
+		getPos(id, true);
+	}
+}
+*/
 int UBTech::execute(byte cmd[], byte result[]) {
 	resetCommandBuffer();
 	memcpy(_buf, cmd, 8);
@@ -288,3 +296,4 @@ int UBTech::execute(byte cmd[], byte result[]) {
 	memcpy(result, _retBuf, _retCnt);
 	return _retCnt;
 }
+
