@@ -163,6 +163,7 @@ void UBTech::getVersion(byte id) {
 // FA AF {id} 01 {angle} {time} {T-1} {T-2} {sum} ED
 // {AA + id}
 void UBTech::move(byte id, byte angle, byte time) {
+	if (!exists(id)) return;
 	resetCommandBuffer();
 	_buf[2] = id;
 	_buf[3] = 0x01;
@@ -210,6 +211,7 @@ byte UBTech::getPos(byte id, bool lockAfterGet, int maxTry) {
 // FA AF {id} D4 00 00 00 00 {sum} ED
 // FA AF {AA + id} D4 00 00 {A-1} {A-2} {sum} ED
 uint16 UBTech::getAdjAngle(byte id) {
+	if (!exists(id)) return 0x7F7F;
 	int tryCnt = 0;
 	int maxTry = DEFAULT_MAX_TRY_GETPOS;
 	while (tryCnt++ < maxTry) {
@@ -230,6 +232,7 @@ uint16 UBTech::getAdjAngle(byte id) {
 // FA AF {id} D2 00 00 {A-1} {A-2} {sum} ED
 // FA AF {AA + id} 00 00 00 00 {sum} ED
 uint16 UBTech::setAdjAngle(byte id, uint16 adjValue) {
+	if (!exists(id)) return 0x7F7F;
 	int tryCnt = 0;
 	int maxTry = DEFAULT_MAX_TRY_GETPOS;
 	while (tryCnt++ < maxTry) {
@@ -247,6 +250,7 @@ uint16 UBTech::setAdjAngle(byte id, uint16 adjValue) {
 // FA AF {id} 04 {0/1} 00 00 00 {sum} ED
 // {AA + id}
 void UBTech::setLED(byte id, byte mode) {
+	if (!exists(id)) return;
 	resetCommandBuffer();
 	_buf[2] = id;
 	_buf[3] = 0x04;
