@@ -56,7 +56,7 @@ class UBTech {
         void showCommand();
         bool checkReturn();
         inline void resetCommandBuffer() { memcpy(_buf, SERVO_CMD, COMMAND_BUFFER_SIZE); }
-        inline void resetReurnBuffer() { memset(_retBuf, 0, RETURN_BUFFER_SIZE); _retCnt = 0; }
+        inline void resetReturnBuffer() { memset(_retBuf, 0, RETURN_BUFFER_SIZE); _retCnt = 0; }
 
         SoftwareSerial *_ss;
         HardwareSerial *_dbg;

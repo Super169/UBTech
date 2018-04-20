@@ -99,7 +99,7 @@ bool UBTech::sendCommand(bool expectReturn) {
 
 bool UBTech::checkReturn() {
     unsigned long startMs = millis();
-    resetReurnBuffer();
+    resetReturnBuffer();
     byte ch;
     while ( ((millis() - startMs) < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
     if (!_ss->available()) return false;
