@@ -250,14 +250,21 @@ uint16 UBTech::setAdjAngle(byte id, uint16 adjValue) {
 // FA AF {id} 04 {0/1} 00 00 00 {sum} ED
 // {AA + id}
 void UBTech::setLED(byte id, byte mode) {
-	if (!exists(id)) return;
+	if ((id) && !exists(id)) return;
 	resetCommandBuffer();
 	_buf[2] = id;
 	_buf[3] = 0x04;
 	_buf[4] = mode;
 	sendCommand();
-	if ((_retCnt > 0) && (_retBuf[0] == (0xAA + id))) {
-		_led[id] = (!mode);
+	if (id) {
+		if ((_retCnt > 0) && (_retBuf[0] == (0xAA + id))) {
+			_led[id] = (!mode);
+		}
+	} else {
+		// Ignore return and assume all OK
+		for (int id =1; id <= MAX_SERVO_ID; id++) {
+			if (exists(id)) _led[id] = (!mode);
+		}
 	}
 }
 /*
