@@ -6,7 +6,6 @@
 #include "SoftwareSerial.h"
 
 #define SERVO_BAUD 115200
-#define MAX_SERVO_ID 20
 
 #define COMMAND_BUFFER_SIZE 10
 #define RETURN_BUFFER_SIZE 	20  // Actually, 10 is enough, just for saftey
@@ -23,12 +22,13 @@ class UBTech {
 		UBTech(SoftwareSerial *ssData, HardwareSerial *hsDebug);
         ~UBTech();
 		bool setDebug(bool debug);
+        void init(byte max_id);
         void begin();
         void end();
         void getVersion(byte id);
         void move(byte id, byte angle, byte time);
 		byte lock(byte id) { return getPos(id, true); }
-		void lockAll() { for (int id = 1; id <= MAX_SERVO_ID; id++) getPos(id, true); }
+		void lockAll() { for (int id = 1; id <= _max_id; id++) getPos(id, true); }
 		byte unlock(byte id) { return getPos(id, false); }
         byte getPos(byte id) { return getPos(id, _isLocked[id], DEFAULT_MAX_TRY_GETPOS); }
 		byte getPos(byte id, bool lockAfterGet) { return getPos(id, lockAfterGet, DEFAULT_MAX_TRY_GETPOS); }
@@ -36,7 +36,7 @@ class UBTech {
         void setLED(byte id, byte mode);
 		inline void setLedOn(byte id) { setLED(id, 0); }
 		inline void setLedOff(byte id) { setLED(id, 1); }
-		inline void detectServo() { detectServo(1, MAX_SERVO_ID); }
+		inline void detectServo() { detectServo(1, _max_id); }
 		inline void detectServo(byte max) { detectServo(1, max); }
 		void detectServo(byte min, byte max);
 		bool exists(byte id);
@@ -66,12 +66,15 @@ class UBTech {
         byte _retBuf[RETURN_BUFFER_SIZE];  
         byte _retCnt;
 
-		bool _servo[MAX_SERVO_ID + 1];
-		bool _led[MAX_SERVO_ID + 1];
-		bool _isLocked[MAX_SERVO_ID + 1];
-		byte _lastAngle[MAX_SERVO_ID + 1];
-		bool _isServo[MAX_SERVO_ID + 1];
-		uint16 _adjAngle[MAX_SERVO_ID + 1];
+		bool _arrayReady;
+		byte _max_id;
+		bool* _servo;
+		bool* _led;
+		bool* _isLocked;
+		byte* _lastAngle;
+		bool* _isServo;
+		uint16* _adjAngle;
+
 };
 
 #endif

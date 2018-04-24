@@ -14,6 +14,7 @@ void UBTech::initObject(SoftwareSerial *ssData, HardwareSerial *hsDebug) {
     _ss = ssData;
 	_dbg = hsDebug;
 	_enableDebug = (_dbg != NULL);
+	_arrayReady = false;
 }
 
 UBTech::~UBTech() {
@@ -27,6 +28,21 @@ bool UBTech::setDebug(bool debug) {
 	return _enableDebug;
 }
 
+void UBTech::init(byte max_id) {
+	// Avoid duplicate array creation
+	if (!_arrayReady) {
+		_max_id = max_id;
+		int arraySize = max_id + 1;
+		_servo = new bool[arraySize];
+		_led = new bool[arraySize];
+		 _isLocked = new bool[arraySize];
+		_lastAngle = new byte[arraySize];
+		_isServo = new bool[arraySize];
+		_adjAngle = new uint16[arraySize];
+		_arrayReady = true;
+	}
+}
+
 void UBTech::begin() {
     _ss->begin(SERVO_BAUD);
 	delay(100);
@@ -35,7 +51,7 @@ void UBTech::begin() {
 
 void UBTech::end() {
     _ss->end();
-	for (int id =1; id <= MAX_SERVO_ID; id++) {
+	for (int id =1; id <= _max_id; id++) {
 		_servo[id] = false;
 		_led[id] = false;
 		_isServo[id] = true;
@@ -46,7 +62,7 @@ void UBTech::end() {
 }
 
 void UBTech::detectServo(byte min, byte max) {
-	memset(_servo, 0, MAX_SERVO_ID + 1);
+	memset(_servo, 0, _max_id + 1);
 	for (int id = min; id <= max; id++) {
 		delay(1);
 		getVersion(id);
@@ -67,7 +83,7 @@ void UBTech::detectServo(byte min, byte max) {
 }
 
 bool UBTech::exists(byte id) {
-	if (id > MAX_SERVO_ID) return false;
+	if (id > _max_id) return false;
 	return _servo[id];
 }
 
@@ -262,18 +278,12 @@ void UBTech::setLED(byte id, byte mode) {
 		}
 	} else {
 		// Ignore return and assume all OK
-		for (int id =1; id <= MAX_SERVO_ID; id++) {
+		for (int id =1; id <= _max_id; id++) {
 			if (exists(id)) _led[id] = (!mode);
 		}
 	}
 }
-/*
-void UBTech::lockAll() {
-	for (int id = 1; id <= MAX_SERVO_ID; id++) {
-		getPos(id, true);
-	}
-}
-*/
+
 int UBTech::execute(byte cmd[], byte result[]) {
 	resetCommandBuffer();
 	memcpy(_buf, cmd, 8);

@@ -42,6 +42,7 @@ void setup() {
 	// Delay 2s to wait for all servo started
 	analogWrite(13, 32);
 	delay(2000);
+	servo.init(16);
 	servo.setDebug(false);  // Disable servo debug first, enable it later if needed
 	retBuffer = servo.retBuffer();
 	Serial.begin(115200);
