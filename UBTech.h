@@ -6,7 +6,7 @@
 #include "SoftwareSerial.h"
 
 #define SERVO_BAUD 115200
-#define MAX_SERVO_ID 16
+#define MAX_SERVO_ID 20
 
 #define COMMAND_BUFFER_SIZE 10
 #define RETURN_BUFFER_SIZE 	20  // Actually, 10 is enough, just for saftey
