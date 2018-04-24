@@ -13,6 +13,8 @@
 #define COMMAND_WAIT_TIME		400
 #define DEFAULT_MAX_TRY_GETPOS	3
 
+#define DEFAULT_MAX_RETRY_DETECT	2
+
 const byte SERVO_CMD[] = {0xFA, 0xAF,0x00,0x00,0x00, 0x00, 0x00, 0x00, 0x00, 0xED};
 const byte JIMU_VERSION[] = {0xFC, 0xCF,0x00,0xAA,0x41, 0x16, 0x51, 0x01, 0x00, 0xED};
 
@@ -22,7 +24,8 @@ class UBTech {
 		UBTech(SoftwareSerial *ssData, HardwareSerial *hsDebug);
         ~UBTech();
 		bool setDebug(bool debug);
-        void init(byte max_id);
+        void init(byte max_id) { return init(max_id, DEFAULT_MAX_RETRY_DETECT); }
+        void init(byte max_id, byte maxRetry);
         void begin();
         void end();
         void getVersion(byte id);
@@ -74,6 +77,8 @@ class UBTech {
 		byte* _lastAngle;
 		bool* _isServo;
 		uint16* _adjAngle;
+		byte _servoCnt;
+		byte _maxRetry;
 
 };
 

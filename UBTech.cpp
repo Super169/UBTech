@@ -28,10 +28,11 @@ bool UBTech::setDebug(bool debug) {
 	return _enableDebug;
 }
 
-void UBTech::init(byte max_id) {
+void UBTech::init(byte max_id, byte maxRetry) {
 	// Avoid duplicate array creation
 	if (!_arrayReady) {
 		_max_id = max_id;
+		_maxRetry = maxRetry;
 		int arraySize = max_id + 1;
 		_servo = new bool[arraySize];
 		_led = new bool[arraySize];
@@ -39,6 +40,7 @@ void UBTech::init(byte max_id) {
 		_lastAngle = new byte[arraySize];
 		_isServo = new bool[arraySize];
 		_adjAngle = new uint16[arraySize];
+		_servoCnt = 0;
 		_arrayReady = true;
 	}
 }
@@ -63,6 +65,8 @@ void UBTech::end() {
 
 void UBTech::detectServo(byte min, byte max) {
 	memset(_servo, 0, _max_id + 1);
+	byte expCnt = max - min + 1;
+	_servoCnt = 0;
 	for (int id = min; id <= max; id++) {
 		delay(1);
 		getVersion(id);
@@ -75,11 +79,37 @@ void UBTech::detectServo(byte min, byte max) {
 				_isLocked[id] = false;
 				_lastAngle[id] = 0xFF;
 				_adjAngle[id] = 0x7F7F;
+				_servoCnt++;
 			}
 		} else {
 			_servo[id] = false;
 		}
 	}
+	// Retry for missing servo
+	int retryCnt = 0;
+	while ((_servoCnt < expCnt) && (retryCnt < _maxRetry)) {
+		retryCnt++;			
+		for (int id = min; id <= max; id++) {
+			if (!_servo[id]) {
+				delay(1);
+				getVersion(id);
+				if ((_retCnt > 0) && (_retBuf[2] == id) && (_retBuf[3] == 0xAA)) {
+					// new servo detected, assume unlock
+					if (!_servo[id]) {
+						_servo[id] = true;
+						_servo[id] = true;
+						_isServo[id] = true;
+						_isLocked[id] = false;
+						_lastAngle[id] = 0xFF;
+						_adjAngle[id] = 0x7F7F;
+						_servoCnt++;
+					}
+				}
+			}
+		}
+	}
+
+	if (_enableDebug) _dbg->printf("%d servo detected.\n", _servoCnt);
 }
 
 bool UBTech::exists(byte id) {
