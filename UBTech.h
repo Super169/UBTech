@@ -54,7 +54,7 @@ class UBTech {
 
     private:
         void initObject(SoftwareSerial *ssData, HardwareSerial *hsDebug);
-        inline bool sendCommand() { sendCommand(true); }
+        inline bool sendCommand() { return sendCommand(true); }
         bool sendCommand(bool expectReturn);
         void showCommand();
         bool checkReturn();

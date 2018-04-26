@@ -119,7 +119,7 @@ bool UBTech::exists(byte id) {
 
 void UBTech::showCommand()  {
     if (!_enableDebug) return;
-    _dbg->printf("%06d OUT>>", millis());
+    _dbg->printf("%08ld OUT>>", millis());
     for (int i = 0; i < 10; i++) {
         _dbg->print( (_buf[i] < 0x10 ? " 0" : " "));
         _dbg->print(_buf[i], HEX);
@@ -150,7 +150,7 @@ bool UBTech::checkReturn() {
     while ( ((millis() - startMs) < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
     if (!_ss->available()) return false;
     if (_enableDebug) {
-        _dbg->printf("%06d IN>>>", millis());
+        _dbg->printf("%08ld IN>>>", millis());
     }
     while (_ss->available()) {
         ch =  (byte) _ss->read();
