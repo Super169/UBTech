@@ -35,7 +35,7 @@ void UBTech::init(byte max_id, byte maxRetry) {
 		_maxRetry = maxRetry;
 		int arraySize = max_id + 1;
 		_servo = new bool[arraySize];
-		_led = new bool[arraySize];
+		_led = new byte[arraySize];
 		 _isLocked = new bool[arraySize];
 		_lastAngle = new byte[arraySize];
 		_isServo = new bool[arraySize];
@@ -55,7 +55,7 @@ void UBTech::end() {
     _ss->end();
 	for (int id =1; id <= _max_id; id++) {
 		_servo[id] = false;
-		_led[id] = false;
+		_led[id] = 0;
 		_isServo[id] = true;
 		_isLocked[id] = false;
 		_lastAngle[id] = 0xFF;
@@ -79,6 +79,7 @@ void UBTech::detectServo(byte min, byte max) {
 				_isLocked[id] = false;
 				_lastAngle[id] = 0xFF;
 				_adjAngle[id] = 0x7F7F;
+				_led[id] = 0;
 				_servoCnt++;
 			}
 		} else {
@@ -102,6 +103,7 @@ void UBTech::detectServo(byte min, byte max) {
 						_isLocked[id] = false;
 						_lastAngle[id] = 0xFF;
 						_adjAngle[id] = 0x7F7F;
+						_led[id] = 0;
 						_servoCnt++;
 					}
 				}
@@ -304,12 +306,12 @@ void UBTech::setLED(byte id, byte mode) {
 	sendCommand();
 	if (id) {
 		if ((_retCnt > 0) && (_retBuf[0] == (0xAA + id))) {
-			_led[id] = (!mode);
+			_led[id] = mode;
 		}
 	} else {
 		// Ignore return and assume all OK
 		for (int id =1; id <= _max_id; id++) {
-			if (exists(id)) _led[id] = (!mode);
+			if (exists(id)) _led[id] = mode;
 		}
 	}
 }
@@ -337,7 +339,7 @@ int UBTech::execute(byte cmd[], byte result[]) {
 				break;
 			case 0x04:
 				if ((cmd[2] != 0) && (_retBuf[0] == (0xAA + cmd[2]))) {
-					_led[cmd[2]] = (!cmd[4]);
+					_led[cmd[2]] = cmd[4];
 				}
 				break;
 		}

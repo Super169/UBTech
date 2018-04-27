@@ -39,6 +39,7 @@ class UBTech {
         void setLED(byte id, byte mode);
 		inline void setLedOn(byte id) { setLED(id, 0); }
 		inline void setLedOff(byte id) { setLED(id, 1); }
+		byte getLedMode(byte id) { return _led[id]; }
 		inline void detectServo() { detectServo(1, _max_id); }
 		inline void detectServo(byte max) { detectServo(1, max); }
 		void detectServo(byte min, byte max);
@@ -72,7 +73,7 @@ class UBTech {
 		bool _arrayReady;
 		byte _max_id;
 		bool* _servo;
-		bool* _led;
+		byte* _led;
 		bool* _isLocked;
 		byte* _lastAngle;
 		bool* _isServo;
