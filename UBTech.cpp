@@ -146,11 +146,15 @@ bool UBTech::sendCommand(bool expectReturn) {
 }
 
 bool UBTech::checkReturn() {
-    unsigned long startMs = millis();
+    // unsigned long startMs = millis();
+    // while ( ((millis() - startMs) < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
+    unsigned long endMs = millis() + COMMAND_WAIT_TIME;
+    while ( (millis() < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
+    if (!_ss->available()) return false;
+
     resetReturnBuffer();
     byte ch;
-    while ( ((millis() - startMs) < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
-    if (!_ss->available()) return false;
+
     if (_enableDebug) {
         _dbg->printf("%08ld IN>>>", millis());
     }
@@ -219,7 +223,7 @@ void UBTech::move(byte id, byte angle, byte time) {
 	_buf[5] = time;
 	_buf[6] = 0x00;
 	_buf[7] = time;  
-	sendCommand();
+	sendCommand(true);
 	// servo will be locked after fire a move command
 	_isLocked[id] = true;
 	_lastAngle[id] = angle;
