@@ -172,7 +172,7 @@ bool UBTech::checkReturn() {
 		// ToDo: check data end?
 		//       But what can i do if not ended, seems not logical as only few bytes returned. 
 		//       1ms is already more than enough.
-		if (!_ss->available()) delay(1);
+		// if (!_ss->available()) delay(1);
     }
 	// TODO: Think about any better solution to initiate the bus.
 	// Special handling for missing frist byte.
