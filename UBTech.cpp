@@ -149,7 +149,7 @@ bool UBTech::checkReturn() {
     // unsigned long startMs = millis();
     // while ( ((millis() - startMs) < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
     unsigned long endMs = millis() + COMMAND_WAIT_TIME;
-    while ( (millis() < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
+    while ( (millis() < endMs) && (!_ss->available()) ) ;
     if (!_ss->available()) return false;
 
     resetReturnBuffer();
