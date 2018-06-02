@@ -28,11 +28,11 @@ bool UBTech::setDebug(bool debug) {
 	return _enableDebug;
 }
 
-void UBTech::init(byte max_id, byte maxRetry) {
+void UBTech::init(byte max_id, byte maxCommandWaitMs, byte maxCommandRetry, byte maxDetectRetry) {
 	// Avoid duplicate array creation
 	if (!_arrayReady) {
 		_max_id = max_id;
-		_maxRetry = maxRetry;
+		setRetry(maxCommandWaitMs, maxCommandRetry, maxDetectRetry);
 		int arraySize = max_id + 1;
 		_servo = new bool[arraySize];
 		_led = new byte[arraySize];
@@ -43,6 +43,14 @@ void UBTech::init(byte max_id, byte maxRetry) {
 		_servoCnt = 0;
 		_arrayReady = true;
 	}
+}
+
+void UBTech::setRetry(byte maxCommandWaitMs, byte maxCommandRetry, byte maxDetectRetry) {
+	// max wait ms should be atleast 1ms
+	_maxCommandWaitMs = (maxCommandWaitMs == 0 ?  DEFAULT_MAX_COMMAND_WAIT_MS : maxCommandWaitMs);
+	_maxCommandRetry = maxCommandRetry;
+	_maxTry = maxCommandRetry + 1;
+	_maxDetectRetry = maxDetectRetry;
 }
 
 void UBTech::begin() {
@@ -88,7 +96,7 @@ void UBTech::detectServo(byte min, byte max) {
 	}
 	// Retry for missing servo
 	int retryCnt = 0;
-	while ((_servoCnt < expCnt) && (retryCnt < _maxRetry)) {
+	while ((_servoCnt < expCnt) && (retryCnt < _maxDetectRetry)) {
 		retryCnt++;			
 		for (int id = min; id <= max; id++) {
 			if (!_servo[id]) {
@@ -148,7 +156,7 @@ bool UBTech::sendCommand(bool expectReturn) {
 bool UBTech::checkReturn() {
     // unsigned long startMs = millis();
     // while ( ((millis() - startMs) < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
-    unsigned long endMs = millis() + COMMAND_WAIT_TIME;
+    unsigned long endMs = millis() + _maxCommandWaitMs;
     while ( (millis() < endMs) && (!_ss->available()) ) ;
     if (!_ss->available()) return false;
 
@@ -163,16 +171,7 @@ bool UBTech::checkReturn() {
         _retBuf[_retCnt++] = ch;
         if (_enableDebug) {
 			_dbg->printf(" %02X", ch);
-			/*
-            _dbg->print((ch < 0x10 ? " 0" : " "));
-            _dbg->print(ch, HEX);
-			*/
         }
-		// extra delay to make sure transaction completed 
-		// ToDo: check data end?
-		//       But what can i do if not ended, seems not logical as only few bytes returned. 
-		//       1ms is already more than enough.
-		// if (!_ss->available()) delay(1);
     }
 	// TODO: Think about any better solution to initiate the bus.
 	// Special handling for missing frist byte.
@@ -214,29 +213,44 @@ void UBTech::getVersion(byte id) {
 
 // FA AF {id} 01 {angle} {time} {T-1} {T-2} {sum} ED
 // {AA + id}
-void UBTech::move(byte id, byte angle, byte time) {
-	if (!exists(id)) return;
-	resetCommandBuffer();
-	_buf[2] = id;
-	_buf[3] = 0x01;
-	_buf[4] = angle;
-	_buf[5] = time;
-	_buf[6] = 0x00;
-	_buf[7] = time;  
-	sendCommand(true);
+bool UBTech::move(byte id, byte angle, byte time) {
+	if (!exists(id)) return false;
+
+	int tryCnt = 0;
+
+	while (tryCnt++ < _maxTry) {
+		resetCommandBuffer();
+		_buf[2] = id;
+		_buf[3] = 0x01;
+		_buf[4] = angle;
+		_buf[5] = time;
+		_buf[6] = 0x00;
+		_buf[7] = time;  
+
+		sendCommand(true);
+
+		if ((_retCnt == 1) && (_retBuf[0] == (0xAA + id))) {
+			_isLocked[id] = true;
+			_lastAngle[id] = angle;
+			return true;
+		}
+	}
+
+	// Failed even after retry
+	if (_enableDebug) {
+		_dbg->printf("Move failed: id=%d ; angle=%d ; time=%d ; MaxTry=%d\n", id, angle, time, _maxTry);
+	}
 	// servo will be locked after fire a move command
-	_isLocked[id] = true;
-	_lastAngle[id] = angle;
+	return false;
 }
 
 
 // FA AF {id} 01 00 00 00 00 {sum} ED
 // FA AF {id} 00 {angle} 00 {real} {sum} ED
-byte UBTech::getPos(byte id, bool lockAfterGet, int maxTry) {
+byte UBTech::getPos(byte id, bool lockAfterGet) {
 	if (!exists(id)) return 0xFF;
 	int tryCnt = 0;
-	if (maxTry < 1) maxTry = DEFAULT_MAX_TRY_GETPOS;
-	while (tryCnt++ < maxTry) {
+	while (tryCnt++ < _maxTry) {
 		resetCommandBuffer();
 		_buf[2] = id;
 		_buf[3] = 0x02;
@@ -265,8 +279,7 @@ byte UBTech::getPos(byte id, bool lockAfterGet, int maxTry) {
 uint16 UBTech::getAdjAngle(byte id) {
 	if (!exists(id)) return 0x7F7F;
 	int tryCnt = 0;
-	int maxTry = DEFAULT_MAX_TRY_GETPOS;
-	while (tryCnt++ < maxTry) {
+	while (tryCnt++ < _maxTry) {
 		resetCommandBuffer();
 		_buf[2] = id;
 		_buf[3] = 0xD4;
@@ -286,8 +299,7 @@ uint16 UBTech::getAdjAngle(byte id) {
 uint16 UBTech::setAdjAngle(byte id, uint16 adjValue) {
 	if (!exists(id)) return 0x7F7F;
 	int tryCnt = 0;
-	int maxTry = DEFAULT_MAX_TRY_GETPOS;
-	while (tryCnt++ < maxTry) {
+	while (tryCnt++ < _maxTry) {
 		resetCommandBuffer();
 		_buf[2] = id;
 		_buf[3] = 0xD2;
