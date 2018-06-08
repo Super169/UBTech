@@ -154,13 +154,13 @@ bool UBTech::sendCommand(bool expectReturn) {
 }
 
 bool UBTech::checkReturn() {
+    resetReturnBuffer();
     // unsigned long startMs = millis();
     // while ( ((millis() - startMs) < COMMAND_WAIT_TIME) && (!_ss->available()) ) ;
     unsigned long endMs = millis() + _maxCommandWaitMs;
     while ( (millis() < endMs) && (!_ss->available()) ) ;
     if (!_ss->available()) return false;
 
-    resetReturnBuffer();
     byte ch;
 
     if (_enableDebug) {
