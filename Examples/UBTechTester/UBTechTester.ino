@@ -10,6 +10,7 @@ void setup() {
 	delay(100);
 	Serial.begin(115200);
 	Serial.println(F("\n\n\nUBTech Servo Tester\n"));
+	servo.init(16);
 	servo.setDebug(false);  // Do not view servo detction here
 	servo.begin();
 	servo.setDebug(true);
